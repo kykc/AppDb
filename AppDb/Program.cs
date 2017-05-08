@@ -50,6 +50,7 @@ namespace AppDb
 		{
 			var parent = Newtonsoft.Json.JsonConvert.DeserializeObject<Model.AppModelCollection>(System.IO.File.ReadAllText(dbloc));
 			parent.Location = target;
+			System.IO.Directory.CreateDirectory(target);
 
 			if (pploc != null)
 			{
