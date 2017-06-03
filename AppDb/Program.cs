@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CLAP;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace AppDb
 {
@@ -32,16 +34,6 @@ namespace AppDb
 			[CLAP.Validation.PathExists]
 			string dbloc,
 
-			[Required]
-			[CLAP.Validation.PathExists]
-			[Description("Directory where links will be created. Caution! All existing contents of this directory will be mercilessly obliterated.")]
-			string target,
-
-			[Aliases("portable-platform-location")]
-			[CLAP.Validation.PathExists]
-			[Description("Location of the portable platform. All installed apps will be automatically imported")]
-			string pploc,
-
 			[Aliases("additional-links-location")]
 			[CLAP.Validation.PathExists]
 			[Description("Location of directory with links. Its contents will be copied to target. Non-recursive.")]
@@ -49,12 +41,10 @@ namespace AppDb
 			)
 		{
 			var parent = Newtonsoft.Json.JsonConvert.DeserializeObject<Model.AppModelCollection>(System.IO.File.ReadAllText(dbloc));
-			parent.Location = target;
-			System.IO.Directory.CreateDirectory(target);
-
-			if (pploc != null)
+			
+			if (parent.PortablePlatformLocation != null)
 			{
-				Util.importPortableApps(parent, pploc);
+				Util.importPortableApps(parent, parent.PortablePlatformLocation);
 			}
 
 			if (addloc != null)
@@ -62,20 +52,43 @@ namespace AppDb
 				Util.importDirectoryWithLinks(parent, addloc);
 			}
 
-			Action<Model.AppModelCollection> execute = (col) =>
-			{
-				var dir = new System.IO.DirectoryInfo(col.Location);
-				dir.Empty();
+			Util.importChocolateyApps(parent);
 
+			Action<Model.AppModelCollection> prepare = (col) =>
+			{
 				foreach (var model in col.Entries)
 				{
-					model.LinkLocation = col.Location;
+					if (col.FavoriteApps.Any(x => x == System.IO.Path.Combine(model.Category, model.Caption)))
+					{
+						model.Category = "appdb-FavoriteApps";
+					}
 
+					model.LinkLocation = System.IO.Path.Combine(col.TargetLocation, model.Category);
+				}
+
+				var locations = col.Entries.Select(x => x.LinkLocation).Distinct();
+
+				foreach (var location in locations)
+				{
+					if (!System.IO.Directory.Exists(location))
+					{
+						System.IO.Directory.CreateDirectory(location);
+					}
+
+					new System.IO.DirectoryInfo(location).Empty();
+				}
+			};
+
+			Action<Model.AppModelCollection> execute = (col) =>
+			{
+				foreach (var model in col.Entries)
+				{		
 					var link = Windows.ShellLink.FromModel(model);
 					link.Save();
 				}
 			};
 
+			prepare(parent);
 			execute(parent);
 		}
 	}
@@ -102,20 +115,71 @@ namespace AppDb
 					Caption = file.Name.Replace(".lnk", ""),
 					ExecutablePath = link.TargetPath,
 					StartIn = link.WorkingDirectory,
-					IconLocation = link.IconLocation
+					IconLocation = link.IconLocation,
 				});
+			}
+		}
+
+		static string runCommand(string filename, string args)
+		{
+			Process process = new Process();
+			process.StartInfo.FileName = filename;
+			process.StartInfo.Arguments = args;
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.RedirectStandardError = false;
+			process.Start();
+			
+			process.WaitForExit();
+
+			string output = process.StandardOutput.ReadToEnd();
+
+			return output;
+		}
+
+		public static void importChocolateyApps(Model.AppModelCollection col)
+		{
+			var choco = Environment.GetEnvironmentVariable("ChocolateyInstall", EnvironmentVariableTarget.User);
+			var chocoBin = System.IO.Path.Combine(choco, "bin");
+
+			foreach (var filename in System.IO.Directory.EnumerateFiles(chocoBin))
+			{
+				var file = new System.IO.FileInfo(filename);
+
+				if (file.Extension == ".exe")
+				{
+					string output = runCommand(filename, "--shimgen-noop");
+					string[] lines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+
+					bool isGui = lines
+						.Where(x => x.StartsWith("  is gui? "))
+						.Select(x => x.Replace("  is gui? ", ""))
+						.Select(x => bool.Parse(x))
+						.FirstOrDefault();
+
+					if (isGui)
+					{
+						string caption = file.Name.Replace(".exe", "");
+
+						var subst = col.AutomaticCaptionSubst.Where(x => x[0] == caption).ToList();
+
+						if (subst.Count > 0)
+						{
+							caption = subst[0][1];
+						}
+
+						if (caption != "")
+						{
+							col.Entries.Add(new Model.ChocoAppModel { Caption = caption, FileName = file.Name }.Promote());
+						}
+					}
+				}
 			}
 		}
 
 		public static void importPortableApps(Model.AppModelCollection col, string path)
 		{
 			var dir = new System.IO.DirectoryInfo(path + System.IO.Path.DirectorySeparatorChar + "PortableApps");
-
-			var captionDict = new Dictionary<string, string>
-			{
-				{ "GoogleChrome", "Chrome" },
-				{ "TelegramDesktop", "Telegram" }
-			};
 
 			foreach (var appdir in dir.GetDirectories())
 			{
@@ -127,6 +191,7 @@ namespace AppDb
 						ExecutablePath = @"D:\Apps\Locale Emulator\LEProc.exe",
 						Arguments = @"-run ""D:\Apps\PortablePlatform\PortableApps\sPortable\sPortable.exe""",
 						Caption = "Skype",
+						Category = "appdb-PortableApps",
 						StartIn = appdir.FullName,
 						IconLocation = System.IO.Path.Combine(new string[] { appdir.FullName, "App", "Skype", "Phone", "Skype.exe" }) + ",0"
 					};
@@ -139,14 +204,19 @@ namespace AppDb
 					{
 						if (file.Name.EndsWith("Portable.exe"))
 						{
-							var entry = new Model.AppModel { ExecutablePath = file.FullName, Caption = file.Name.Replace("Portable.exe", "") };
+							var entry = new Model.AppModel { ExecutablePath = file.FullName, Category = "appdb-PortableApps", Caption = file.Name.Replace("Portable.exe", "") };
 
-							if (captionDict.ContainsKey(entry.Caption))
+							var subst = col.AutomaticCaptionSubst.Where(x => x[0] == entry.Caption).ToList();
+
+							if (subst.Count > 0)
 							{
-								entry.Caption = captionDict[entry.Caption];
+								entry.Caption = subst[0][1];
 							}
 
-							col.Entries.Add(entry);
+							if (entry.Caption != "")
+							{
+								col.Entries.Add(entry);
+							}
 						}
 					}
 				}

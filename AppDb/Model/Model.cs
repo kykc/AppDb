@@ -12,6 +12,7 @@ namespace AppDb.Model
 		public string ExecutablePath { get; set; } = null;
 		public string Arguments { get; set; } = "";
 		public string Caption { get; set; } = null;
+		public string Category { get; set; } = "appdb-OtherApps";
 
 		private string _startIn = null;
 		public string StartIn
@@ -40,9 +41,25 @@ namespace AppDb.Model
 		}
 	}
 
+	class ChocoAppModel
+	{
+		public string Caption { get; set; } = null;
+		public string FileName { get; set; } = null;
+
+		public AppModel Promote()
+		{
+			var choco = Environment.GetEnvironmentVariable("ChocolateyInstall", EnvironmentVariableTarget.User);
+
+			return new AppModel { ExecutablePath = System.IO.Path.Combine(choco, "bin", FileName), Caption = Caption, Category = "appdb-ChocolateyApps" };
+		}
+	}
+
 	class AppModelCollection
 	{
-		public string Location { get; set; } = null;
+		public string TargetLocation { get; set; } = null;
+		public string PortablePlatformLocation { get; set; } = null;
+		public List<string> FavoriteApps { get; set; } = new List<string>();
 		public List<AppModel> Entries { get; set; } = new List<AppModel>();
+		public List<string[]> AutomaticCaptionSubst { get; set; } = new List<string[]>();
 	}
 }
