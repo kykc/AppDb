@@ -41,6 +41,8 @@ namespace AppDb
 			)
 		{
 			var parent = Newtonsoft.Json.JsonConvert.DeserializeObject<Model.AppModelCollection>(System.IO.File.ReadAllText(dbloc));
+			parent.TargetLocation = Environment.ExpandEnvironmentVariables(parent.TargetLocation);
+			parent.PortablePlatformLocation = Environment.ExpandEnvironmentVariables(parent.PortablePlatformLocation);
 			
 			if (parent.PortablePlatformLocation != null)
 			{
