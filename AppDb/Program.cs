@@ -188,8 +188,8 @@ namespace AppDb
 				{
 					var entry = new Model.AppModel
 					{
-						ExecutablePath = @"D:\Apps\Locale Emulator\LEProc.exe",
-						Arguments = @"-run ""D:\Apps\PortablePlatform\PortableApps\sPortable\sPortable.exe""",
+						ExecutablePath = @"%AUTOMATL_APPS%\Locale Emulator\LEProc.exe",
+						Arguments = @"-run ""%AUTOMATL_APPS%\PortablePlatform\PortableApps\sPortable\sPortable.exe""",
 						Caption = "Skype",
 						Category = "appdb-PortableApps",
 						StartIn = appdir.FullName,
