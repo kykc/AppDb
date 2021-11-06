@@ -65,7 +65,12 @@ namespace AppDb
 						model.Category = "appdb-FavoriteApps";
 					}
 
-					model.LinkLocation = System.IO.Path.Combine(col.TargetLocation, model.Category);
+					// Windows 10/11 Start menu fails to show icon if environment variables are used in .lnk *facepalm*
+					if (model.ExecutablePath != null) model.ExecutablePath = Environment.ExpandEnvironmentVariables(model.ExecutablePath);
+					if (model.IconLocation != null) model.IconLocation = Environment.ExpandEnvironmentVariables(model.IconLocation);
+					if (model.StartIn != null) model.StartIn = Environment.ExpandEnvironmentVariables(model.StartIn);
+
+					model.LinkLocation = Environment.ExpandEnvironmentVariables(System.IO.Path.Combine(col.TargetLocation, model.Category));
 				}
 
 				var locations = col.Entries.Select(x => x.LinkLocation).Distinct();
@@ -185,40 +190,23 @@ namespace AppDb
 
 			foreach (var appdir in dir.GetDirectories())
 			{
-				// Special case for skype *sigh*
-				if (appdir.Name == "sPortable")
-				{
-					var entry = new Model.AppModel
-					{
-						ExecutablePath = @"%AUTOMATL_APPS%\Locale Emulator\LEProc.exe",
-						Arguments = @"-run ""%AUTOMATL_APPS%\PortablePlatform\PortableApps\sPortable\sPortable.exe""",
-						Caption = "Skype",
-						Category = "appdb-PortableApps",
-						StartIn = appdir.FullName,
-						IconLocation = System.IO.Path.Combine(new string[] { appdir.FullName, "App", "Skype", "Phone", "Skype.exe" }) + ",0"
-					};
 
-					col.Entries.Add(entry);
-				}
-				else
+				foreach (var file in appdir.EnumerateFiles())
 				{
-					foreach (var file in appdir.EnumerateFiles())
+					if (file.Name.EndsWith("Portable.exe"))
 					{
-						if (file.Name.EndsWith("Portable.exe"))
+						var entry = new Model.AppModel { ExecutablePath = file.FullName, Category = "appdb-PortableApps", Caption = file.Name.Replace("Portable.exe", "") };
+
+						var subst = col.AutomaticCaptionSubst.Where(x => x[0] == entry.Caption).ToList();
+
+						if (subst.Count > 0)
 						{
-							var entry = new Model.AppModel { ExecutablePath = file.FullName, Category = "appdb-PortableApps", Caption = file.Name.Replace("Portable.exe", "") };
+							entry.Caption = subst[0][1];
+						}
 
-							var subst = col.AutomaticCaptionSubst.Where(x => x[0] == entry.Caption).ToList();
-
-							if (subst.Count > 0)
-							{
-								entry.Caption = subst[0][1];
-							}
-
-							if (entry.Caption != "")
-							{
-								col.Entries.Add(entry);
-							}
+						if (entry.Caption != "")
+						{
+							col.Entries.Add(entry);
 						}
 					}
 				}
