@@ -18,6 +18,13 @@ namespace AppDb
 		}
 	}
 
+	class ProcessResult
+    {
+		public string Output { get; set; }
+		public string Error { get; set; }
+		public int ExitCode { get; set; }
+    }
+
 	class ControlVerbs
 	{
 		[Empty, Help]
@@ -127,21 +134,22 @@ namespace AppDb
 			}
 		}
 
-		static string runCommand(string filename, string args)
+		static ProcessResult runCommand(string filename, string args)
 		{
 			Process process = new Process();
 			process.StartInfo.FileName = filename;
 			process.StartInfo.Arguments = args;
 			process.StartInfo.UseShellExecute = false;
 			process.StartInfo.RedirectStandardOutput = true;
-			process.StartInfo.RedirectStandardError = false;
+			process.StartInfo.RedirectStandardError = true;
 			process.Start();
 			
 			process.WaitForExit();
 
 			string output = process.StandardOutput.ReadToEnd();
+			string error = process.StandardError.ReadToEnd();
 
-			return output;
+			return new ProcessResult { Output = output, Error = error, ExitCode = process.ExitCode };
 		}
 
 		public static void importChocolateyApps(Model.AppModelCollection col)
@@ -155,29 +163,39 @@ namespace AppDb
 
 				if (file.Extension == ".exe")
 				{
-					string output = runCommand(filename, "--shimgen-noop");
-					string[] lines = output.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+					var result = runCommand(filename, "--shimgen-noop");
 
-					bool isGui = lines
-						.Where(x => x.StartsWith("  is gui? "))
-						.Select(x => x.Replace("  is gui? ", ""))
-						.Select(x => bool.Parse(x))
-						.FirstOrDefault();
-
-					if (isGui)
+					if (result.Error.Length > 0 || result.ExitCode != -1)
 					{
-						string caption = file.Name.Replace(".exe", "");
+						Console.WriteLine("WARNING: cannot check gui shimgen for [" + filename + "], exit code " + result.ExitCode);
+						Console.WriteLine(result.Output);
+						Console.Error.WriteLine(result.Error);
+					}
+					else
+					{
+						string[] lines = result.Output.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
 
-						var subst = col.AutomaticCaptionSubst.Where(x => x[0] == caption).ToList();
+						bool isGui = lines
+							.Where(x => x.StartsWith("  is gui? "))
+							.Select(x => x.Replace("  is gui? ", ""))
+							.Select(x => bool.Parse(x))
+							.FirstOrDefault();
 
-						if (subst.Count > 0)
+						if (isGui)
 						{
-							caption = subst[0][1];
-						}
+							string caption = file.Name.Replace(".exe", "");
 
-						if (caption != "")
-						{
-							col.Entries.Add(new Model.ChocoAppModel { Caption = caption, FileName = file.Name }.Promote());
+							var subst = col.AutomaticCaptionSubst.Where(x => x[0] == caption).ToList();
+
+							if (subst.Count > 0)
+							{
+								caption = subst[0][1];
+							}
+
+							if (caption != "")
+							{
+								col.Entries.Add(new Model.ChocoAppModel { Caption = caption, FileName = file.Name }.Promote());
+							}
 						}
 					}
 				}
