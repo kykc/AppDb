@@ -1,0 +1,20 @@
+name: build choco package
+run-name: ${{ gitea.actor }} is building appdb
+on: [push]
+
+jobs:
+  build-deb:
+    runs-on: automatl-net6-ubuntu2204
+    if: gitea.ref == 'refs/heads/master'
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: build choco
+        run: |
+          dotnet publish -c Release -r win-x64 -t:PackChoco
+      - name: rename nupkg
+        run: |
+          mv AppDb/net6/appdb.portable*.nupkg appdb.portable.nupkg
+      - name: upload choco
+        run: |
+          choco push appdb.portable.nupkg --source https://${{ secrets.CI_USER }}:${{ secrets.CI_TOKEN }}@${{ env.AU_GITEA_HOST }}/api/packages/audist/nuget/index.json --api-key ${{ secrets.CI_TOKEN }}

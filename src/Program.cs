@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CLAP;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace AppDb
 {
@@ -31,6 +32,12 @@ namespace AppDb
 		public static void Help(string help)
 		{
 			Console.WriteLine(help);
+		}
+
+		[Verb]
+		public static void Version()
+		{
+			Console.WriteLine(Assembly.GetExecutingAssembly().GetName().Version);
 		}
 
 		[Verb(Description = "Recreate database")]
