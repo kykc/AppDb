@@ -17,4 +17,4 @@ jobs:
           mv net6/appdb.portable*.nupkg appdb.portable.nupkg
       - name: upload choco
         run: |
-          choco push appdb.portable.nupkg --source https://${{ secrets.CI_USER }}:${{ secrets.CI_TOKEN }}@${{ env.AU_GITEA_HOST }}/api/packages/audist/nuget/index.json --api-key ${{ secrets.CI_TOKEN }}
+          choco push appdb.portable.nupkg --source https://${{ secrets.CI_USER }}:${{ secrets.CI_TOKEN }}@${{ vars.AU_GITEA_HOST }}/api/packages/audist/nuget/index.json --api-key ${{ secrets.CI_TOKEN }}
