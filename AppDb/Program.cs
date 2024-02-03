@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,11 +19,11 @@ namespace AppDb
 	}
 
 	class ProcessResult
-    {
+	{
 		public string Output { get; set; }
 		public string Error { get; set; }
 		public int ExitCode { get; set; }
-    }
+	}
 
 	class ControlVerbs
 	{
@@ -50,7 +50,7 @@ namespace AppDb
 			var parent = Newtonsoft.Json.JsonConvert.DeserializeObject<Model.AppModelCollection>(System.IO.File.ReadAllText(dbloc));
 			parent.TargetLocation = Environment.ExpandEnvironmentVariables(parent.TargetLocation);
 			parent.PortablePlatformLocation = Environment.ExpandEnvironmentVariables(parent.PortablePlatformLocation);
-			
+
 			if (parent.PortablePlatformLocation != null)
 			{
 				Util.importPortableApps(parent, parent.PortablePlatformLocation);
@@ -123,7 +123,7 @@ namespace AppDb
 			{
 				var link = new Windows.ShellLink(file.FullName);
 
-				col.Entries.Add(new Model.AppModel
+				col.AddEntry(new Model.AppModel
 				{
 					Arguments = link.Arguments,
 					Caption = file.Name.Replace(".lnk", ""),
@@ -194,7 +194,7 @@ namespace AppDb
 
 							if (caption != "")
 							{
-								col.Entries.Add(new Model.ChocoAppModel { Caption = caption, FileName = file.Name }.Promote());
+								col.AddEntry(new Model.ChocoAppModel { Caption = caption, FileName = file.Name }.Promote());
 							}
 						}
 					}
@@ -224,7 +224,7 @@ namespace AppDb
 
 						if (entry.Caption != "")
 						{
-							col.Entries.Add(entry);
+							col.AddEntry(entry);
 						}
 					}
 				}

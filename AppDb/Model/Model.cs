@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -61,5 +61,17 @@ namespace AppDb.Model
 		public List<string> FavoriteApps { get; set; } = new List<string>();
 		public List<AppModel> Entries { get; set; } = new List<AppModel>();
 		public List<string[]> AutomaticCaptionSubst { get; set; } = new List<string[]>();
+
+		public void AddEntry(AppModel app)
+		{
+			if (Entries.Where(x => x.Caption == app.Caption).Count() > 0)
+			{
+				Console.WriteLine("NOTICE: [" + app.Caption + "] already exists, ignoring " + app.ExecutablePath);
+			}
+			else
+			{
+				Entries.Add(app);
+			}
+		}
 	}
 }
