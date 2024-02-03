@@ -34,3 +34,8 @@ print(nuspec_text)
 
 with open('appdb.choco.nuspec', 'w') as f:
     f.write(nuspec_text)
+
+# TODO: mask all files besides target exe?
+with open(os.path.join(variables["AUTOMATL_TARGET_DIR"], "createdump.exe.ignore"), 'w') as f:
+    f.write("")
+
